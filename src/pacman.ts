@@ -35,6 +35,9 @@ window.init = function(parent: HTMLElement | string, assetRoot?: string) {
     // Scale only the rendered view to fit the viewport (letterboxed),
     // keeping game elements and logic at native resolution.
     setupFullscreenViewport(parentEl, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Add info/help UI overlay
+    setupInfoOverlay(parentEl);
 };
 window.init('parent');
 
@@ -87,5 +90,52 @@ function setupFullscreenViewport(container: HTMLElement, gameW: number, gameH: n
     container.addEventListener('touchmove', prevent, { passive: false });
     // Prevent iOS pinch-zoom gestures
     container.addEventListener('gesturestart', prevent as EventListener, { passive: false } as any);
+}
+
+function setupInfoOverlay(container: HTMLElement) {
+        // Ensure container is positionable
+        if (getComputedStyle(container).position === 'static') {
+                container.style.position = 'fixed'; // already set in setupFullscreenViewport
+        }
+
+        // Create button
+        const btn = document.createElement('button');
+        btn.className = 'info-btn';
+        btn.textContent = 'i';
+        btn.title = 'How to play';
+
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'info-overlay';
+        overlay.innerHTML = `
+            <div class="info-card">
+                <button class="info-close" aria-label="Close">×</button>
+                <h3>How to Play</h3>
+                <h4>PC</h4>
+                <ul>
+                    <li>Enter: Start / Pause</li>
+                    <li>Arrow Keys: Move</li>
+                    <li>M: Toggle sound</li>
+                </ul>
+                <h4>Mobile</h4>
+                <ul>
+                    <li>Tap: Start / Pause / Confirm</li>
+                    <li>Swipe Up/Down/Left/Right: Move</li>
+                    <li>Tap on Game Over: Return to Menu</li>
+                </ul>
+            </div>
+        `;
+
+        // Wire up interactions
+        const show = () => { overlay.style.display = 'flex'; };
+        const hide = () => { overlay.style.display = 'none'; };
+        btn.addEventListener('click', (e) => { e.stopPropagation(); show(); });
+        overlay.addEventListener('click', hide);
+        overlay.querySelector('.info-card')?.addEventListener('click', (e) => e.stopPropagation());
+        overlay.querySelector('.info-close')?.addEventListener('click', (e) => { e.stopPropagation(); hide(); });
+
+        // Add to DOM
+        container.appendChild(btn);
+        container.appendChild(overlay);
 }
 
