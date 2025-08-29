@@ -11,7 +11,14 @@ export class TitleState extends BaseState {
 
     private choice: number;
     private lastKeypressTime: number;
-    private touchStartHandler?: (e: TouchEvent) => void;
+    private boundTouchStart?: (e: TouchEvent) => void;
+    private boundTouchMove?: (e: TouchEvent) => void;
+    private boundTouchEnd?: (e: TouchEvent) => void;
+    private touchStartX: number = 0;
+    private touchStartY: number = 0;
+    private touchStartTime: number = 0;
+    private touchActive: boolean = false;
+    private touchSwiped: boolean = false;
 
     /**
      * State that renders the title screen.
@@ -27,10 +34,13 @@ export class TitleState extends BaseState {
     override enter(game: PacmanGame) {
         this.game = game;
         super.enter(game);
-
-    // Bind and store the touch handler so we can remove it correctly on leave
-    this.touchStartHandler = this.handleStart.bind(this);
-    game.canvas.addEventListener('touchstart', this.touchStartHandler, { capture: false, passive: true });
+    // Bind touch handlers for mobile gestures
+    this.boundTouchStart = this.onTouchStart.bind(this);
+    this.boundTouchMove = this.onTouchMove.bind(this);
+    this.boundTouchEnd = this.onTouchEnd.bind(this);
+    game.canvas.addEventListener('touchstart', this.boundTouchStart, { passive: true });
+    game.canvas.addEventListener('touchmove', this.boundTouchMove, { passive: true });
+    game.canvas.addEventListener('touchend', this.boundTouchEnd, { passive: true });
         this.choice = 0;
         this.lastKeypressTime = game.playTime;
 
@@ -47,15 +57,72 @@ export class TitleState extends BaseState {
     }
 
     override leaving(game: Game) {
-        if (this.touchStartHandler) {
-            game.canvas.removeEventListener('touchstart', this.touchStartHandler);
-            this.touchStartHandler = undefined;
+        if (this.boundTouchStart) game.canvas.removeEventListener('touchstart', this.boundTouchStart);
+        if (this.boundTouchMove) game.canvas.removeEventListener('touchmove', this.boundTouchMove);
+        if (this.boundTouchEnd) game.canvas.removeEventListener('touchend', this.boundTouchEnd);
+    }
+
+    private onTouchStart(e: TouchEvent) {
+        if (!e.touches || e.touches.length === 0) return;
+        const t = e.touches[0];
+        this.touchStartX = t.clientX;
+        this.touchStartY = t.clientY;
+        this.touchStartTime = performance.now();
+        this.touchActive = true;
+        this.touchSwiped = false;
+    }
+
+    private onTouchMove(e: TouchEvent) {
+        if (!this.touchActive || this.touchSwiped) return;
+        const t = e.touches && e.touches[0] ? e.touches[0] : null;
+        if (!t) return;
+        const dx = t.clientX - this.touchStartX;
+        const dy = t.clientY - this.touchStartY;
+        const adx = Math.abs(dx);
+        const ady = Math.abs(dy);
+        const SWIPE_DIST_PX = 14;
+
+        if (adx < SWIPE_DIST_PX && ady < SWIPE_DIST_PX) return;
+
+        // For menu, use vertical swipes to move selection
+        if (ady >= adx) {
+            const dirUp = dy < 0;
+            const playTime = this.game.playTime;
+            // Mirror keyboard nav
+            const prevChoice = this.choice;
+            if (dirUp) {
+                this.choice = Math.abs(this.choice - 1);
+            } else {
+                this.choice = (this.choice + 1) % 2;
+            }
+            if (this.choice !== prevChoice) {
+                this.game.audio.playSound(Sounds.TOKEN);
+                this.lastKeypressTime = playTime;
+            }
+            this.touchSwiped = true;
+        } else {
+            // Optional: could map left/right too in future
+            this.touchSwiped = true;
         }
     }
 
-    handleStart() {
-        // console.log('Yee, touch detected!');
-        this.startGame();
+    private onTouchEnd(e: TouchEvent) {
+        if (!this.touchActive) return;
+        this.touchActive = false;
+        const touch = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
+        const dt = performance.now() - this.touchStartTime;
+        if (!touch) return;
+        const dx = touch.clientX - this.touchStartX;
+        const dy = touch.clientY - this.touchStartY;
+        const adx = Math.abs(dx);
+        const ady = Math.abs(dy);
+        const TAP_TIME_MS = 220;
+        const TAP_DIST_PX = 12;
+
+        // Tap to start (Enter)
+        if (!this.touchSwiped && dt <= TAP_TIME_MS && adx < TAP_DIST_PX && ady < TAP_DIST_PX) {
+            this.startGame();
+        }
     }
 
     override render(ctx: CanvasRenderingContext2D) {
@@ -158,7 +225,23 @@ export class TitleState extends BaseState {
     }
 
     private startGame() {
+        this.requestFullscreenPortrait();
         this.game.startGame(this.choice);
+    }
+
+    private requestFullscreenPortrait() {
+        try {
+            const host: any = this.game.canvas.parentElement || this.game.canvas;
+            if (host && host.requestFullscreen) {
+                host.requestFullscreen().catch(() => {});
+            }
+        } catch {}
+        try {
+            const anyScreen: any = (screen as any);
+            if (anyScreen && anyScreen.orientation && anyScreen.orientation.lock) {
+                anyScreen.orientation.lock('portrait').catch(() => {});
+            }
+        } catch {}
     }
 
     override update(delta: number) {

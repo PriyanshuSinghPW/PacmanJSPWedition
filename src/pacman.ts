@@ -65,11 +65,14 @@ function setupFullscreenViewport(container: HTMLElement, gameW: number, gameH: n
     const applyScale = () => {
         const viewportW = window.innerWidth;
         const viewportH = window.innerHeight;
-        // Prefer crisp integer scaling for pixel art
-        const scale = Math.min(viewportW / gameW, viewportH / gameH);
-        const intScale = Math.max(1, Math.floor(scale));
-        const targetW = Math.floor(gameW * intScale);
-        const targetH = Math.floor(gameH * intScale);
+        const isPortrait = viewportH > viewportW;
+
+        // In portrait, allow fractional scaling to better fill width.
+        // In landscape/desktop, keep integer scaling for crisp pixel art.
+        const rawScale = Math.min(viewportW / gameW, viewportH / gameH);
+        const scale = isPortrait ? rawScale : Math.max(1, Math.floor(rawScale));
+        const targetW = Math.round(gameW * scale);
+        const targetH = Math.round(gameH * scale);
 
         canvas.style.width = `${targetW}px`;
         canvas.style.height = `${targetH}px`;

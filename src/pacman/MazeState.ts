@@ -28,6 +28,7 @@ export class MazeState extends BaseState {
     private touchStartY: number = 0;
     private touchStartTime: number = 0;
     private touchActive: boolean = false;
+    private touchSwiped: boolean = false;
     private pendingSwipeDir: Direction | null = null;
     private boundTouchStart?: (e: TouchEvent) => void;
     private boundTouchMove?: (e: TouchEvent) => void;
@@ -89,10 +90,58 @@ export class MazeState extends BaseState {
         this.touchStartY = t.clientY;
         this.touchStartTime = performance.now();
         this.touchActive = true;
+        this.touchSwiped = false;
     }
 
     private onTouchMove(e: TouchEvent) {
-        // We don't need continuous move for simple swipe detection
+        if (!this.touchActive || this.touchSwiped) return;
+        const t = e.touches && e.touches[0] ? e.touches[0] : null;
+        if (!t) return;
+        const dx = t.clientX - this.touchStartX;
+        const dy = t.clientY - this.touchStartY;
+        const adx = Math.abs(dx);
+        const ady = Math.abs(dy);
+        const SWIPE_DIST_PX = 14; // Lower threshold for snappier response
+
+        if (adx < SWIPE_DIST_PX && ady < SWIPE_DIST_PX) return;
+
+        // Decide direction on the dominant axis
+        let dir: Direction;
+        if (adx >= ady) {
+            dir = dx < 0 ? Direction.WEST : Direction.EAST;
+        } else {
+            dir = dy < 0 ? Direction.NORTH : Direction.SOUTH;
+        }
+        this.pendingSwipeDir = dir;
+        this.touchSwiped = true; // lock for this gesture
+
+        // Try to apply immediately for instant feel
+        if (this.substate === 'IN_GAME' && !this.game.paused) {
+            const pac = this.game.pacman;
+            const maze = this.maze;
+            let applied = false;
+            switch (dir) {
+                case Direction.WEST:
+                    applied = pac.getCanMoveLeft(maze);
+                    if (applied) pac.direction = Direction.WEST;
+                    break;
+                case Direction.EAST:
+                    applied = pac.getCanMoveRight(maze);
+                    if (applied) pac.direction = Direction.EAST;
+                    break;
+                case Direction.NORTH:
+                    applied = pac.getCanMoveUp(maze);
+                    if (applied) pac.direction = Direction.NORTH;
+                    break;
+                case Direction.SOUTH:
+                    applied = pac.getCanMoveDown(maze);
+                    if (applied) pac.direction = Direction.SOUTH;
+                    break;
+            }
+            if (!applied) {
+                // Keep pending; handleInput will retry when aligned
+            }
+        }
     }
 
     private onTouchEnd(e: TouchEvent) {
@@ -108,30 +157,34 @@ export class MazeState extends BaseState {
         const dt = endTime - this.touchStartTime;
 
         // Thresholds tuned for mobile CSS pixels
-        const TAP_TIME_MS = 250;
-        const TAP_DIST_PX = 10;
-        const SWIPE_DIST_PX = 24;
+    const TAP_TIME_MS = 220;
+    const TAP_DIST_PX = 12;
+    const SWIPE_DIST_PX = 14;
 
-        if (dt <= TAP_TIME_MS && adx < TAP_DIST_PX && ady < TAP_DIST_PX) {
-            // Tap => toggle pause (if not on game over)
-            if (this.substate !== 'GAME_OVER') {
+        if (!this.touchSwiped && dt <= TAP_TIME_MS && adx < TAP_DIST_PX && ady < TAP_DIST_PX) {
+            // Tap => Enter key mapping: if GAME_OVER, go back to main menu; else toggle pause
+            if (this.substate === 'GAME_OVER') {
+                this.game.setState(new TitleState(this.game));
+            } else {
                 this.game.paused = !this.game.paused;
             }
             return;
         }
 
-        if (adx < SWIPE_DIST_PX && ady < SWIPE_DIST_PX) {
+        if (!this.touchSwiped && adx < SWIPE_DIST_PX && ady < SWIPE_DIST_PX) {
             return; // ignore micro movements
         }
 
         // Determine swipe direction
-        let dir: Direction;
-        if (adx >= ady) {
-            dir = dx < 0 ? Direction.WEST : Direction.EAST;
-        } else {
-            dir = dy < 0 ? Direction.NORTH : Direction.SOUTH;
+        if (!this.touchSwiped) {
+            let dir: Direction;
+            if (adx >= ady) {
+                dir = dx < 0 ? Direction.WEST : Direction.EAST;
+            } else {
+                dir = dy < 0 ? Direction.NORTH : Direction.SOUTH;
+            }
+            this.pendingSwipeDir = dir;
         }
-        this.pendingSwipeDir = dir;
     }
 
     private paintExtraLives(ctx: CanvasRenderingContext2D) {
