@@ -6,6 +6,7 @@ import { TitleState } from './TitleState';
 import Sounds from './Sounds';
 import { Ghost, MotionState } from './Ghost';
 import { InputManager, Keys } from 'gtp';
+import { Direction } from './Direction';
 import { TILE_SIZE } from './Constants';
 
 type Substate = 'READY' | 'IN_GAME' | 'DYING' | 'GAME_OVER';
@@ -21,6 +22,16 @@ export class MazeState extends BaseState {
     private nextUpdateTime: number;
     private nextDyingFrameTime: number;
     private lastMazeScreenKeypressTime: number;
+
+    // Touch controls state
+    private touchStartX: number = 0;
+    private touchStartY: number = 0;
+    private touchStartTime: number = 0;
+    private touchActive: boolean = false;
+    private pendingSwipeDir: Direction | null = null;
+    private boundTouchStart?: (e: TouchEvent) => void;
+    private boundTouchMove?: (e: TouchEvent) => void;
+    private boundTouchEnd?: (e: TouchEvent) => void;
 
     private static readonly DYING_FRAME_DELAY_MILLIS = 75;
 
@@ -53,6 +64,74 @@ export class MazeState extends BaseState {
         this.nextDyingFrameTime = 0;
         this.nextUpdateTime = 0;
         this.lastSpriteFrameTime = 0;
+
+        // Attach touch controls for mobile
+        const canvas = game.canvas;
+        this.boundTouchStart = this.onTouchStart.bind(this);
+        this.boundTouchMove = this.onTouchMove.bind(this);
+        this.boundTouchEnd = this.onTouchEnd.bind(this);
+        canvas.addEventListener('touchstart', this.boundTouchStart, { passive: true });
+        canvas.addEventListener('touchmove', this.boundTouchMove, { passive: true });
+        canvas.addEventListener('touchend', this.boundTouchEnd, { passive: true });
+    }
+
+    override leaving(game: PacmanGame) {
+        const canvas = game.canvas;
+        if (this.boundTouchStart) canvas.removeEventListener('touchstart', this.boundTouchStart);
+        if (this.boundTouchMove) canvas.removeEventListener('touchmove', this.boundTouchMove);
+        if (this.boundTouchEnd) canvas.removeEventListener('touchend', this.boundTouchEnd);
+    }
+
+    private onTouchStart(e: TouchEvent) {
+        if (e.touches.length === 0) return;
+        const t = e.touches[0];
+        this.touchStartX = t.clientX;
+        this.touchStartY = t.clientY;
+        this.touchStartTime = performance.now();
+        this.touchActive = true;
+    }
+
+    private onTouchMove(e: TouchEvent) {
+        // We don't need continuous move for simple swipe detection
+    }
+
+    private onTouchEnd(e: TouchEvent) {
+        if (!this.touchActive) return;
+        this.touchActive = false;
+        const endTime = performance.now();
+        const touch = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
+        if (!touch) return;
+        const dx = touch.clientX - this.touchStartX;
+        const dy = touch.clientY - this.touchStartY;
+        const adx = Math.abs(dx);
+        const ady = Math.abs(dy);
+        const dt = endTime - this.touchStartTime;
+
+        // Thresholds tuned for mobile CSS pixels
+        const TAP_TIME_MS = 250;
+        const TAP_DIST_PX = 10;
+        const SWIPE_DIST_PX = 24;
+
+        if (dt <= TAP_TIME_MS && adx < TAP_DIST_PX && ady < TAP_DIST_PX) {
+            // Tap => toggle pause (if not on game over)
+            if (this.substate !== 'GAME_OVER') {
+                this.game.paused = !this.game.paused;
+            }
+            return;
+        }
+
+        if (adx < SWIPE_DIST_PX && ady < SWIPE_DIST_PX) {
+            return; // ignore micro movements
+        }
+
+        // Determine swipe direction
+        let dir: Direction;
+        if (adx >= ady) {
+            dir = dx < 0 ? Direction.WEST : Direction.EAST;
+        } else {
+            dir = dy < 0 ? Direction.NORTH : Direction.SOUTH;
+        }
+        this.pendingSwipeDir = dir;
     }
 
     private paintExtraLives(ctx: CanvasRenderingContext2D) {
@@ -205,6 +284,34 @@ export class MazeState extends BaseState {
         }
 
         if (!game.paused) {
+
+            // Apply any pending swipe direction; keep trying until it takes
+            if (this.pendingSwipeDir != null && this.substate === 'IN_GAME') {
+                const pac = game.pacman;
+                const maze = this.maze;
+                let applied = false;
+                switch (this.pendingSwipeDir) {
+                    case Direction.WEST:
+                        applied = pac.getCanMoveLeft(maze);
+                        if (applied) pac.direction = Direction.WEST;
+                        break;
+                    case Direction.EAST:
+                        applied = pac.getCanMoveRight(maze);
+                        if (applied) pac.direction = Direction.EAST;
+                        break;
+                    case Direction.NORTH:
+                        applied = pac.getCanMoveUp(maze);
+                        if (applied) pac.direction = Direction.NORTH;
+                        break;
+                    case Direction.SOUTH:
+                        applied = pac.getCanMoveDown(maze);
+                        if (applied) pac.direction = Direction.SOUTH;
+                        break;
+                }
+                if (applied) {
+                    this.pendingSwipeDir = null;
+                }
+            }
 
             switch (this.substate) {
 

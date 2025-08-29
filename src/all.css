@@ -5,6 +5,8 @@ html, body {
   height: 100%;
   font-family: 'Open Sans', sans-serif;
   font-size: 14px;
+  /* Prevent mobile pull-to-refresh / overscroll glow */
+  overscroll-behavior: none;
 }
 h1 {
   margin-top: 0;
@@ -19,6 +21,8 @@ h4 {
 }
 #parent {
   margin-bottom: 3rem;
+  /* Avoid default gestures inside the game container */
+  touch-action: none;
 }
 .content {
   width: 600px;
@@ -53,4 +57,8 @@ canvas {
   image-rendering: pixelated; /* Chrome */
   image-rendering: crisp-edges;
   -ms-interpolation-mode: nearest-neighbor;  /* IE (non-standard property) */
+  /* Disable browser gestures (e.g., pull-to-refresh, double-tap zoom) */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }

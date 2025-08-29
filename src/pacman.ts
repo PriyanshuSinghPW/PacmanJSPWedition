@@ -78,5 +78,11 @@ function setupFullscreenViewport(container: HTMLElement, gameW: number, gameH: n
     // Initial scale and on resize
     applyScale();
     window.addEventListener('resize', applyScale);
+
+    // Block pull-to-refresh / overscroll gestures within the game
+    const prevent = (e: Event) => e.preventDefault();
+    container.addEventListener('touchmove', prevent, { passive: false });
+    // Prevent iOS pinch-zoom gestures
+    container.addEventListener('gesturestart', prevent as EventListener, { passive: false } as any);
 }
 

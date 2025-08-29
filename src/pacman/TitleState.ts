@@ -11,6 +11,7 @@ export class TitleState extends BaseState {
 
     private choice: number;
     private lastKeypressTime: number;
+    private touchStartHandler?: (e: TouchEvent) => void;
 
     /**
      * State that renders the title screen.
@@ -27,7 +28,9 @@ export class TitleState extends BaseState {
         this.game = game;
         super.enter(game);
 
-        game.canvas.addEventListener('touchstart', this.handleStart.bind(this), { capture: false, passive: true });
+    // Bind and store the touch handler so we can remove it correctly on leave
+    this.touchStartHandler = this.handleStart.bind(this);
+    game.canvas.addEventListener('touchstart', this.touchStartHandler, { capture: false, passive: true });
         this.choice = 0;
         this.lastKeypressTime = game.playTime;
 
@@ -44,7 +47,10 @@ export class TitleState extends BaseState {
     }
 
     override leaving(game: Game) {
-        game.canvas.removeEventListener('touchstart', this.handleStart.bind(this), false);
+        if (this.touchStartHandler) {
+            game.canvas.removeEventListener('touchstart', this.touchStartHandler);
+            this.touchStartHandler = undefined;
+        }
     }
 
     handleStart() {
