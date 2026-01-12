@@ -46,7 +46,12 @@ beforeEach(() => {
         loadNextLevel: vi.fn(),
         startPacmanDying: vi.fn(),
         godMode: false,
-        getLives: () => 3
+        getLives: () => 3,
+        canvas: {
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            style: {}
+        }
     };
 });
 
