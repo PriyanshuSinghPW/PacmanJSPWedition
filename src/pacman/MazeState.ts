@@ -24,11 +24,11 @@ export class MazeState extends BaseState {
     private lastMazeScreenKeypressTime: number;
 
     // Touch controls state
-    private touchStartX: number = 0;
-    private touchStartY: number = 0;
-    private touchStartTime: number = 0;
-    private touchActive: boolean = false;
-    private touchSwiped: boolean = false;
+    private touchStartX = 0;
+    private touchStartY = 0;
+    private touchStartTime = 0;
+    private touchActive = false;
+    private touchSwiped = false;
     private pendingSwipeDir: Direction | null = null;
     private boundTouchStart?: (e: TouchEvent) => void;
     private boundTouchMove?: (e: TouchEvent) => void;
@@ -95,8 +95,7 @@ export class MazeState extends BaseState {
 
     private onTouchMove(e: TouchEvent) {
         if (!this.touchActive || this.touchSwiped) return;
-        const t = e.touches && e.touches[0] ? e.touches[0] : null;
-        if (!t) return;
+        const t = e.touches[0];
         const dx = t.clientX - this.touchStartX;
         const dy = t.clientY - this.touchStartY;
         const adx = Math.abs(dx);
@@ -109,7 +108,8 @@ export class MazeState extends BaseState {
         let dir: Direction;
         if (adx >= ady) {
             dir = dx < 0 ? Direction.WEST : Direction.EAST;
-        } else {
+        }
+        else {
             dir = dy < 0 ? Direction.NORTH : Direction.SOUTH;
         }
         this.pendingSwipeDir = dir;
@@ -148,8 +148,7 @@ export class MazeState extends BaseState {
         if (!this.touchActive) return;
         this.touchActive = false;
         const endTime = performance.now();
-        const touch = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : null;
-        if (!touch) return;
+        const touch = e.changedTouches[0];
         const dx = touch.clientX - this.touchStartX;
         const dy = touch.clientY - this.touchStartY;
         const adx = Math.abs(dx);
@@ -157,15 +156,16 @@ export class MazeState extends BaseState {
         const dt = endTime - this.touchStartTime;
 
         // Thresholds tuned for mobile CSS pixels
-    const TAP_TIME_MS = 220;
-    const TAP_DIST_PX = 12;
-    const SWIPE_DIST_PX = 14;
+        const TAP_TIME_MS = 220;
+        const TAP_DIST_PX = 12;
+        const SWIPE_DIST_PX = 14;
 
         if (!this.touchSwiped && dt <= TAP_TIME_MS && adx < TAP_DIST_PX && ady < TAP_DIST_PX) {
             // Tap => Enter key mapping: if GAME_OVER, go back to main menu; else toggle pause
             if (this.substate === 'GAME_OVER') {
                 this.game.setState(new TitleState(this.game));
-            } else {
+            }
+            else {
                 this.game.paused = !this.game.paused;
             }
             return;
@@ -180,7 +180,8 @@ export class MazeState extends BaseState {
             let dir: Direction;
             if (adx >= ady) {
                 dir = dx < 0 ? Direction.WEST : Direction.EAST;
-            } else {
+            }
+            else {
                 dir = dy < 0 ? Direction.NORTH : Direction.SOUTH;
             }
             this.pendingSwipeDir = dir;

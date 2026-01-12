@@ -56,12 +56,14 @@ function setupFullscreenViewport(container: HTMLElement, gameW: number, gameH: n
         margin: '0',
         padding: '0',
         zIndex: '9999'
-    } as CSSStyleDeclaration);
+    });
 
-    const canvas = container.querySelector('canvas') as HTMLCanvasElement | null;
+    const canvas = container.querySelector('canvas');
     if (!canvas) {
         // Canvas will be added by the engine shortly; defer sizing a tick
-        requestAnimationFrame(() => setupFullscreenViewport(container, gameW, gameH));
+        requestAnimationFrame(() => {
+            setupFullscreenViewport(container, gameW, gameH);
+        });
         return;
     }
 
@@ -86,28 +88,30 @@ function setupFullscreenViewport(container: HTMLElement, gameW: number, gameH: n
     window.addEventListener('resize', applyScale);
 
     // Block pull-to-refresh / overscroll gestures within the game
-    const prevent = (e: Event) => e.preventDefault();
+    const prevent = (e: Event) => {
+        e.preventDefault();
+    };
     container.addEventListener('touchmove', prevent, { passive: false });
     // Prevent iOS pinch-zoom gestures
-    container.addEventListener('gesturestart', prevent as EventListener, { passive: false } as any);
+    container.addEventListener('gesturestart', prevent as unknown as EventListener, { passive: false });
 }
 
 function setupInfoOverlay(container: HTMLElement) {
-        // Ensure container is positionable
-        if (getComputedStyle(container).position === 'static') {
-                container.style.position = 'fixed'; // already set in setupFullscreenViewport
-        }
+    // Ensure container is positionable
+    if (getComputedStyle(container).position === 'static') {
+        container.style.position = 'fixed'; // already set in setupFullscreenViewport
+    }
 
-        // Create button
-        const btn = document.createElement('button');
-        btn.className = 'info-btn';
-        btn.textContent = 'i';
-        btn.title = 'How to play';
+    // Create button
+    const btn = document.createElement('button');
+    btn.className = 'info-btn';
+    btn.textContent = 'i';
+    btn.title = 'How to play';
 
-        // Create overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'info-overlay';
-        overlay.innerHTML = `
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'info-overlay';
+    overlay.innerHTML = `
             <div class="info-card">
                 <button class="info-close" aria-label="Close">×</button>
                 <h3>How to Play</h3>
@@ -120,22 +124,34 @@ function setupInfoOverlay(container: HTMLElement) {
                 <h4>Mobile</h4>
                 <ul>
                     <li>Tap: Start / Pause / Confirm</li>
-                    <li>Swipe Up/Down/Left/Right: Move</li>
+                    <li>Swipe Up/Down-Left/Right: Move</li>
                     <li>Tap on Game Over: Return to Menu</li>
                 </ul>
             </div>
         `;
 
-        // Wire up interactions
-        const show = () => { overlay.style.display = 'flex'; };
-        const hide = () => { overlay.style.display = 'none'; };
-        btn.addEventListener('click', (e) => { e.stopPropagation(); show(); });
-        overlay.addEventListener('click', hide);
-        overlay.querySelector('.info-card')?.addEventListener('click', (e) => e.stopPropagation());
-        overlay.querySelector('.info-close')?.addEventListener('click', (e) => { e.stopPropagation(); hide(); });
+    // Wire up interactions
+    const show = () => {
+        overlay.style.display = 'flex';
+    };
+    const hide = () => {
+        overlay.style.display = 'none';
+    };
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        show();
+    });
+    overlay.addEventListener('click', hide);
+    overlay.querySelector('.info-card')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+    overlay.querySelector('.info-close')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hide();
+    });
 
-        // Add to DOM
-        container.appendChild(btn);
-        container.appendChild(overlay);
+    // Add to DOM
+    container.appendChild(btn);
+    container.appendChild(overlay);
 }
 

@@ -14,11 +14,11 @@ export class TitleState extends BaseState {
     private boundTouchStart?: (e: TouchEvent) => void;
     private boundTouchMove?: (e: TouchEvent) => void;
     private boundTouchEnd?: (e: TouchEvent) => void;
-    private touchStartX: number = 0;
-    private touchStartY: number = 0;
-    private touchStartTime: number = 0;
-    private touchActive: boolean = false;
-    private touchSwiped: boolean = false;
+    private touchStartX = 0;
+    private touchStartY = 0;
+    private touchStartTime = 0;
+    private touchActive = false;
+    private touchSwiped = false;
 
     /**
      * State that renders the title screen.
@@ -34,13 +34,13 @@ export class TitleState extends BaseState {
     override enter(game: PacmanGame) {
         this.game = game;
         super.enter(game);
-    // Bind touch handlers for mobile gestures
-    this.boundTouchStart = this.onTouchStart.bind(this);
-    this.boundTouchMove = this.onTouchMove.bind(this);
-    this.boundTouchEnd = this.onTouchEnd.bind(this);
-    game.canvas.addEventListener('touchstart', this.boundTouchStart, { passive: true });
-    game.canvas.addEventListener('touchmove', this.boundTouchMove, { passive: true });
-    game.canvas.addEventListener('touchend', this.boundTouchEnd, { passive: true });
+        // Bind touch handlers for mobile gestures
+        this.boundTouchStart = this.onTouchStart.bind(this);
+        this.boundTouchMove = this.onTouchMove.bind(this);
+        this.boundTouchEnd = this.onTouchEnd.bind(this);
+        game.canvas.addEventListener('touchstart', this.boundTouchStart, { passive: true });
+        game.canvas.addEventListener('touchmove', this.boundTouchMove, { passive: true });
+        game.canvas.addEventListener('touchend', this.boundTouchEnd, { passive: true });
         this.choice = 0;
         this.lastKeypressTime = game.playTime;
 
@@ -63,7 +63,7 @@ export class TitleState extends BaseState {
     }
 
     private onTouchStart(e: TouchEvent) {
-        if (!e.touches || e.touches.length === 0) return;
+        if (e.touches.length === 0) return;
         const t = e.touches[0];
         this.touchStartX = t.clientX;
         this.touchStartY = t.clientY;
@@ -74,8 +74,7 @@ export class TitleState extends BaseState {
 
     private onTouchMove(e: TouchEvent) {
         if (!this.touchActive || this.touchSwiped) return;
-        const t = e.touches && e.touches[0] ? e.touches[0] : null;
-        if (!t) return;
+        const t = e.touches[0];
         const dx = t.clientX - this.touchStartX;
         const dy = t.clientY - this.touchStartY;
         const adx = Math.abs(dx);
@@ -92,7 +91,8 @@ export class TitleState extends BaseState {
             const prevChoice = this.choice;
             if (dirUp) {
                 this.choice = Math.abs(this.choice - 1);
-            } else {
+            }
+            else {
                 this.choice = (this.choice + 1) % 2;
             }
             if (this.choice !== prevChoice) {
@@ -100,7 +100,8 @@ export class TitleState extends BaseState {
                 this.lastKeypressTime = playTime;
             }
             this.touchSwiped = true;
-        } else {
+        }
+        else {
             // Optional: could map left/right too in future
             this.touchSwiped = true;
         }
@@ -109,9 +110,9 @@ export class TitleState extends BaseState {
     private onTouchEnd(e: TouchEvent) {
         if (!this.touchActive) return;
         this.touchActive = false;
-        const touch = e.changedTouches && e.changedTouches[0] ? e.changedTouches[0] : null;
+        const touch = e.changedTouches[0];
         const dt = performance.now() - this.touchStartTime;
-        if (!touch) return;
+
         const dx = touch.clientX - this.touchStartX;
         const dy = touch.clientY - this.touchStartY;
         const adx = Math.abs(dx);
@@ -231,17 +232,17 @@ export class TitleState extends BaseState {
 
     private requestFullscreenPortrait() {
         try {
-            const host: any = this.game.canvas.parentElement || this.game.canvas;
-            if (host && host.requestFullscreen) {
-                host.requestFullscreen().catch(() => {});
-            }
-        } catch {}
+            const host = this.game.canvas.parentElement ?? this.game.canvas;
+            host.requestFullscreen().catch(() => { /* ignore */ });
+        }
+        catch { /* ignore */ }
         try {
-            const anyScreen: any = (screen as any);
-            if (anyScreen && anyScreen.orientation && anyScreen.orientation.lock) {
-                anyScreen.orientation.lock('portrait').catch(() => {});
-            }
-        } catch {}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment
+            const anyScreen = screen as any;
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+            anyScreen?.orientation?.lock('portrait').catch(() => { /* ignore */ });
+        }
+        catch { /* ignore */ }
     }
 
     override update(delta: number) {
