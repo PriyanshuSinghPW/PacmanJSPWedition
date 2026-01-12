@@ -5,7 +5,7 @@ import { Pacman } from './Pacman';
 import { TitleState } from './TitleState';
 import Sounds from './Sounds';
 import { Ghost, MotionState } from './Ghost';
-import { InputManager, Keys } from 'gtp';
+import { InputManager, Keys, Utils } from 'gtp';
 import { Direction } from './Direction';
 import { TILE_SIZE } from './Constants';
 
@@ -57,7 +57,7 @@ export class MazeState extends BaseState {
 
         // Prevents the user's "Enter" press to start the game from being
         // picked up by our handleInput().
-        this.lastMazeScreenKeypressTime = game.playTime + MazeState.INPUT_REPEAT_MILLIS;
+        this.lastMazeScreenKeypressTime = Utils.timestamp() + MazeState.INPUT_REPEAT_MILLIS;
 
         this.substate = 'READY';
         this.firstTimeThrough = true;
@@ -327,12 +327,15 @@ export class MazeState extends BaseState {
         const game = this.game;
         this.handleDefaultKeys();
         const input: InputManager = game.inputManager;
+        const now = Utils.timestamp();
 
         // Enter -> Pause.  Don't check for pausing on "Game Over" screen as
         // that will carry over into the next game!
-        if (this.substate !== 'GAME_OVER' && input.enter(true)) {
+        if (this.substate !== 'GAME_OVER' &&
+                now >= this.lastMazeScreenKeypressTime + MazeState.INPUT_REPEAT_MILLIS &&
+                input.enter(true)) {
             game.paused = !game.paused;
-            this.lastMazeScreenKeypressTime = time;
+            this.lastMazeScreenKeypressTime = now;
             return;
         }
 
@@ -381,7 +384,7 @@ export class MazeState extends BaseState {
 
         }
 
-        if (time >= this.lastMazeScreenKeypressTime + MazeState.INPUT_REPEAT_MILLIS) {
+        if (now >= this.lastMazeScreenKeypressTime + MazeState.INPUT_REPEAT_MILLIS) {
 
             // Hidden options (Z + keypress)
             if (!game.paused && this.substate === 'IN_GAME' &&
@@ -390,7 +393,7 @@ export class MazeState extends BaseState {
                 // Z+X => auto-load next level
                 if (input.isKeyDown(Keys.KEY_X)) {
                     game.loadNextLevel();
-                    this.lastMazeScreenKeypressTime = time;
+                    this.lastMazeScreenKeypressTime = now;
                 }
 
                 // Z+C => auto-death
@@ -398,7 +401,7 @@ export class MazeState extends BaseState {
                     game.startPacmanDying();
                     this.substate = 'DYING';
                     this.nextDyingFrameTime = time + MazeState.DYING_FRAME_DELAY_MILLIS;
-                    this.lastMazeScreenKeypressTime = time;
+                    this.lastMazeScreenKeypressTime = now;
                 }
             }
 
@@ -424,7 +427,7 @@ export class MazeState extends BaseState {
                     this.substate = 'IN_GAME';
                     this.substateStartTime = time;
                     game.resetPlayTime();
-                    this.lastMazeScreenKeypressTime = game.playTime;
+                    // this.lastMazeScreenKeypressTime = game.playTime;
                     game.setLoopedSound(Sounds.SIREN);
                     this.firstTimeThrough = false;
                 }
